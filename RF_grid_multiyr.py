@@ -37,7 +37,8 @@ df97 = df97.rename(columns={"LC97_6": "LC"})
 df = pd.concat([df85,df97])
 #split according to grid
 df_train = df[df['folds'].isin([1,2,3,4,5,6,7])]
-df_valid = df[df['folds'].isin([8,9,10])]
+df_valid = df[df['folds'].isin([8,9])]
+df_hold = df[df['folds']==10]
 #%% split datasets into X (inputs) and y (labels)
 
 X_train = df_train[['B1', 'B2', 'B3', 'B4','B5']]
