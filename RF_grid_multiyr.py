@@ -14,19 +14,23 @@ import sklearn
 #%% set up file paths
 
 ml_dir = "C:/Users/isabe/Documents/UNIGE/S4/Machine Learning/"
-point_data = "points_w_folds.csv"
-rast_stack_name = "data/2004_2009/stackd/stack_20040907.tif"
+#point_data = "points_w_folds.csv"
+#rast_stack_name = "data/2004_2009/stackd/stack_20040907.tif"
 tif_folder = "data/2004_2009/test_folder/"
 
-#%% read in pre-prepared train/validation data, which has been assigned folds
+#%% read in pre-prepared train/validation data, where each instance has been assigned
+#to a fold
+
+#data for 1985 contains data from 2 landsat images
+#data for 1997 contains data from 5 landst images
 
 df85 = pd.read_csv(os.path.join(ml_dir, "points_w_folds85.csv"))
 df97 = pd.read_csv(os.path.join(ml_dir, "points_w_folds97.csv"))
 
 #%%
 #clean up data
-df85 = df85[['B1', 'B2', 'B3', 'B4','B5', 'LC85_6','srce', 'folds']]
-df97 = df97[['B1', 'B2', 'B3', 'B4','B5', 'LC97_6','srce', 'folds']]
+df85 = df85[['B1', 'B2', 'B3', 'B4','B5', 'LC85_6','folds']]
+df97 = df97[['B1', 'B2', 'B3', 'B4','B5', 'LC97_6','folds']]
 df85 = df85.rename(columns={"LC85_6": "LC"})
 df97 = df97.rename(columns={"LC97_6": "LC"})
 
@@ -49,40 +53,6 @@ y_valid = y_valid.values.ravel()
 print(pd.value_counts(y_train))
 print(pd.value_counts(y_valid))
 
-#%% Procecss test data
-# This code extracts spectral data for each of the 5 bands at each point
-
-tif_folder = "data/2004_2009/test_folder/"
-
-r = re.compile(".*B.*\.TIF$")
-dir_list =  os.listdir(os.path.join(ml_dir, "data/2004_2009/test_folder/"))
-grid_list = list(filter(r.match,dir_list))
-grid_list = grid_list[0:5]
-
-#load point data
-df_test = pd.read_csv(os.path.join(ml_dir, "points_w_folds.csv"))
-#extract coordinates
-df_test.index = range(len(df_test))
-coords = [(x,y) for x, y in zip(df_test.new_x, df_test.new_y)]
-
-#each band is saved as a separate tif, load tif and extract point data
-src1 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[0]))
-df_test['B1'] = [x[0] for x in src1.sample(coords)]
-src2 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[1]))
-df_test['B2'] = [x[0] for x in src2.sample(coords)]
-src3 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[2]))
-df_test['B3'] = [x[0] for x in src3.sample(coords)]
-src4 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[3]))
-df_test['B4'] = [x[0] for x in src4.sample(coords)]
-src5 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[4]))
-df_test['B5'] = [x[0] for x in src5.sample(coords)]
-
-#split into X (inputs) and y (labels)
-X_test = df_test[['B1', 'B2', 'B3', 'B4','B5']]
-X_test = X_test.to_numpy()
-y_pd = df_test[['LC09R_6']]
-y_test = y_pd.values.ravel()
-
 #%% define split for cross validation to keep current distribution for train and valid sets.
 #https://stackoverflow.com/questions/31948879/using-explicit-predefined-validation-set-for-grid-search-with-sklearn
 
@@ -94,6 +64,8 @@ y = np.concatenate((y_train, y_valid), axis=0)
 
 pds = PredefinedSplit(test_fold = split_index)
 
+pds.get_n_splits()
+# OUTPUT: 1
 #%% Parameter grid for hyperparameter search
 
 param_grid = {'n_estimators': [50, 100, 150, 200, 400],
@@ -131,6 +103,40 @@ rfc = RandomForestClassifier(max_depth= 25, min_samples_leaf = 10,
 rfc.fit(X_train, y_train) 
 t1 = time.time()
 print(f"{(t1 - t0):.2f}s elapsed")  
+
+#%% Procecss test data
+# This code extracts spectral data for each of the 5 bands at each point
+
+tif_folder = "data/2004_2009/test_folder/"
+
+r = re.compile(".*B.*\.TIF$")
+dir_list =  os.listdir(os.path.join(ml_dir, "data/2004_2009/test_folder/"))
+grid_list = list(filter(r.match,dir_list))
+grid_list = grid_list[0:5]
+
+#load point data
+df_test = pd.read_csv(os.path.join(ml_dir, "points_w_folds.csv"))
+#extract coordinates
+df_test.index = range(len(df_test))
+coords = [(x,y) for x, y in zip(df_test.new_x, df_test.new_y)]
+
+#each band is saved as a separate tif, load tif and extract point data
+src1 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[0]))
+df_test['B1'] = [x[0] for x in src1.sample(coords)]
+src2 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[1]))
+df_test['B2'] = [x[0] for x in src2.sample(coords)]
+src3 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[2]))
+df_test['B3'] = [x[0] for x in src3.sample(coords)]
+src4 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[3]))
+df_test['B4'] = [x[0] for x in src4.sample(coords)]
+src5 = rio.open(os.path.join(ml_dir, tif_folder, grid_list[4]))
+df_test['B5'] = [x[0] for x in src5.sample(coords)]
+
+#split into X (inputs) and y (labels)
+X_test = df_test[['B1', 'B2', 'B3', 'B4','B5']]
+X_test = X_test.to_numpy()
+y_pd = df_test[['LC09R_6']]
+y_test = y_pd.values.ravel()
 
 #%% Metrics
 from sklearn.metrics import accuracy_score
