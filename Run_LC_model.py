@@ -11,8 +11,27 @@ import numpy as np
 import sklearn
 import random
 
+#%%
+from datetime import datetime
+
+# current dateTime
+now = datetime.now()
+
+# convert to string
+date_time_str = now.strftime("%d%m")
+print('DateTime String:', date_time_str)
+
 #%% 1. set up file path
 ml_dir = "C:/Users/isabe/Documents/UNIGE/S4/Machine Learning/"
+
+#%% 2. determine run & variables
+
+run = "base" # base, spectral, 
+
+if run == "base":
+    var = ['B1', 'B2', 'B3', 'B4', 'B5']
+elif run == "spectral":
+    var = ['B1', 'B2', 'B3', 'B4', 'B5', 'NDVI', 'NDBI', 'NDWI']
 
 #%% 2. read in pre-prepared data
 # where each instance has been assigned
@@ -39,7 +58,24 @@ df97 = df97.rename(columns={"LC97_6": "LC"})
 
 df = pd.concat([df85,df97])
 
+#%%
+
+def getIndicesL5(df):
+    #NDVI = (NIR - RED) / (NIR + RED)
+    df["NDVI"] = (df["B4"] - df["B3"]) / (df["B4"] + df["B3"])
+
+    #NDBI = (SWIR – NIR) / (SWIR + NIR)
+    df["NDBI"] = (df["B5"] - df["B4"]) / (df["B5"] + df["B4"])
+
+    #NDWI = (G – NIR) / (G + NIR)
+    df["NDWI"] = (df["B3"] - df["B5"]) / (df["B3"] + df["B5"])
+    
+    return df
+
+if run != "base":
+    df = getIndicesL5(df)
 #%% 5. separate out test set 
+
 #get unique values of cell identifier
 cells = df['index_right'].drop_duplicates()
 #set random seed
@@ -51,13 +87,14 @@ df_test = df[df['index_right'].isin(cells_test)]
 df_tv = df[-df['index_right'].isin(cells_test)]
 
 #%% 6. Split dataset into X (inputs) and y (labels)
+
 #training/validation
-X_tv = df_tv[['B1', 'B2', 'B3', 'B4', 'B5']]
+X_tv = df_tv[var]
 X_tv = X_tv.to_numpy()
 y_tv = df_tv[['LC']]
 y_tv = y_tv.values.ravel()
 #test
-X_test = df_test[['B1', 'B2', 'B3', 'B4', 'B5']]
+X_test = df_test[var]
 X_test = X_test.to_numpy()
 y_test = df_test[['LC']]
 y_test = y_test.values.ravel()
@@ -146,7 +183,8 @@ print(f"{(t1 - t0):.2f}s elapsed")
 #%% 9. Save RF results
 results = grid_search.cv_results_
 df = pd.DataFrame(results) 
-df.to_csv('C:/Users/isabe/Documents/UNIGE/S4/Machine Learning/grid_search_f1-2705.csv')
+df.to_csv(os.path.join(ml_dir,'grid_search_f1_',date_time_str, '.csv'))
+#df.to_csv('C:/Users/isabe/Documents/UNIGE/S4/Machine Learning/grid_search_f1-2705.csv')
 
 #%% 10. Predict test set values
 from sklearn.metrics import accuracy_score
@@ -187,7 +225,7 @@ all_probs = np.max(grid_search.predict_proba(X_test), axis=1)
 df_test['prob'] = all_probs
 df_test['predicted'] = y_pred
 
-df_test.to_csv(os.path.join(ml_dir, "results_for_test_2004-2009_2505.csv"))
+df_test.to_csv(os.path.join(ml_dir, "results_for_test_2004-2009_",date_time_str,".csv"))
 #%% 13. Calculate kappa score
 from sklearn.metrics import cohen_kappa_score
 kscore = cohen_kappa_score(y_test, y_pred)
@@ -195,7 +233,7 @@ print(kscore)
 
 #%% 14. Second test set (2004 Landsat image data)
 test_0409 = pd.read_csv(os.path.join(ml_dir, "data/test_2004-2009.csv"))
-X_test2 = df_test[['B1', 'B2', 'B3', 'B4', 'B5']]
+X_test2 = df_test[var]
 X_test2 = X_test2.to_numpy()
 y_test2 = df_test[['LC09R_6']]
 y_test2 = y_test2.values.ravel()
@@ -239,7 +277,8 @@ grid_search.fit(X_tv, y_tv)
 t1 = time.time()
 results = grid_search.cv_results_
 df = pd.DataFrame(results) 
-df.to_csv('C:/Users/isabe/Documents/UNIGE/S4/Machine Learning/grid_search_lm2405_f1.csv')
+df.to_csv(os.path.join(ml_dir,'grid_search_lm_f1', date_time_str, '.csv')
+#df.to_csv(os.path.join(ml_dir,'grid_search_f1_',date_time_str, '.csv'))
 #%%  MLR predictions on test set
 test_preds1 = grid_search.predict(X_test)
 
